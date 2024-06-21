@@ -1,0 +1,137 @@
+# Beta diversity
+
+```{r load_data_beta, message=FALSE, warning=FALSE}
+load("data/data_podarcis_all.Rdata")
+```
+
+```{r beta_div_population, comment="", message=FALSE, warning=FALSE}
+
+richness <- genome_counts_filt_all %>%
+  pivot_longer(!genome,names_to="sample",values_to = "counts") %>%
+  left_join(sample_metadata_all,by="sample") %>%
+  mutate(population=factor(population)) %>% 
+  group_by(population) %>% 
+  group_split() %>% 
+  map_dbl(., ~ .x %>%
+    select(genome, sample, counts) %>%
+    pivot_wider(names_from = sample, values_from = counts) %>%
+    column_to_rownames(var = "genome") %>%
+    tss() %>%
+    as.data.frame() %>%
+    hilldiss(data=., metric="C", q = 0)
+  )
+names(richness)  <- unique(sample_metadata_all$population) %>% sort()
+
+
+neutral <- genome_counts_filt_all %>%
+  pivot_longer(!genome,names_to="sample",values_to = "counts") %>%
+  left_join(sample_metadata_all,by="sample") %>%
+  mutate(population=factor(population)) %>% 
+  group_by(population) %>% 
+  group_split() %>% 
+  map_dbl(., ~ .x %>%
+    select(genome, sample, counts) %>%
+    pivot_wider(names_from = sample, values_from = counts) %>%
+    column_to_rownames(var = "genome") %>%
+    tss() %>%
+    as.data.frame() %>%
+    hilldiss(data=., metric="C", q = 1)
+  )
+names(neutral)  <- unique(sample_metadata_all$population) %>% sort()
+
+phylogenetic <- genome_counts_filt_all %>%
+  pivot_longer(!genome,names_to="sample",values_to = "counts") %>%
+  left_join(sample_metadata_all,by="sample") %>%
+  mutate(population=factor(population)) %>% 
+  group_by(population) %>% 
+  group_split() %>% 
+  map_dbl(., ~ .x %>%
+    select(genome, sample, counts) %>%
+    pivot_wider(names_from = sample, values_from = counts) %>%
+    column_to_rownames(var = "genome") %>%
+    tss() %>%
+    as.data.frame() %>%
+    hilldiss(data=., metric="C", tree=genome_tree_all, q = 1)
+  )
+names(phylogenetic)  <- unique(sample_metadata_all$population) %>% sort()
+
+# Merge all metrics
+beta_div <- bind_rows(richness,neutral,phylogenetic) %>%
+  t() %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var="population") %>% 
+  as_tibble() %>% 
+  rename("richness"=V1,"neutral"=V2,"phylogenetic"=V3)
+```
+
+```{r beta_div_boxplot, comment="", message=FALSE, warning=FALSE, fig.height=3, fig.width=10, fig.fullwidth=TRUE}
+
+#Richness
+beta_div %>%
+  left_join(sample_metadata_all %>% select(species,population,population_type) %>% unique, by = "population") %>%
+      ggplot(aes(y = richness, x = population_type, group=population_type, color=population_type, fill=population_type)) +
+      geom_boxplot(outlier.shape = NA) +
+      geom_jitter(alpha=0.5) +
+      scale_color_manual(name="Population type",
+          breaks=c("island","islet"),
+          values=c("#6A9AC3","#AFD699")) +
+      scale_fill_manual(name="Population type",
+          breaks=c("island","islet"),
+          values=c("#6A9AC350","#AFD69950")) +
+      facet_wrap(. ~ species, scales = "fixed", ncol=5) +
+      coord_cartesian(xlim = c(1, NA)) +
+      theme_classic() +
+      theme(
+        strip.background = element_blank(),
+        panel.grid.minor.x = element_line(size = .1, color = "grey"),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)
+      )
+
+#Neutral
+beta_div %>%
+  left_join(sample_metadata_all %>% select(species,population,population_type) %>% unique, by = "population") %>%
+      ggplot(aes(y = neutral, x = population_type, group=population_type, color=population_type, fill=population_type)) +
+      geom_boxplot(outlier.shape = NA) +
+      geom_jitter(alpha=0.5) +
+      scale_color_manual(name="Population type",
+          breaks=c("island","islet"),
+          values=c("#6A9AC3","#AFD699")) +
+      scale_fill_manual(name="Population type",
+          breaks=c("island","islet"),
+          values=c("#6A9AC350","#AFD69950")) +
+      facet_wrap(. ~ species, scales = "fixed", ncol=5) +
+      coord_cartesian(xlim = c(1, NA)) +
+      theme_classic() +
+      theme(
+        strip.background = element_blank(),
+        panel.grid.minor.x = element_line(size = .1, color = "grey"),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)
+      )
+
+#Phylogenetic
+beta_div %>%
+  left_join(sample_metadata_all %>% select(species,population,population_type) %>% unique, by = "population") %>%
+      ggplot(aes(y = phylogenetic, x = population_type, group=population_type, color=population_type, fill=population_type)) +
+      geom_boxplot(outlier.shape = NA) +
+      geom_jitter(alpha=0.5) +
+      scale_color_manual(name="Population type",
+          breaks=c("island","islet"),
+          values=c("#6A9AC3","#AFD699")) +
+      scale_fill_manual(name="Population type",
+          breaks=c("island","islet"),
+          values=c("#6A9AC350","#AFD69950")) +
+      facet_wrap(. ~ species, scales = "fixed", ncol=5) +
+      coord_cartesian(xlim = c(1, NA)) +
+      theme_classic() +
+      theme(
+        strip.background = element_blank(),
+        panel.grid.minor.x = element_line(size = .1, color = "grey"),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)
+      )
+```

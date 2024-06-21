@@ -1,0 +1,178 @@
+# Data statistics
+
+```{r load_data_stats}
+load("data/data_podarcis_filfolensis.Rdata")
+load("data/data_podarcis_gaigeae.Rdata")
+load("data/data_podarcis_milensis.Rdata")
+load("data/data_podarcis_pityusensis.Rdata")
+load("data/data_podarcis_all.Rdata")
+```
+
+## Sequencing reads statistics
+
+```{r reads_stats}
+bind_rows(list(sample_metadata_pf,sample_metadata_pg,sample_metadata_pm,sample_metadata_pp)) %>% 
+    group_by(species) %>% 
+    summarise(Individuals=n(),
+              Populations=n_distinct(region), 
+              Total=sum(reads_post_fastp * 150 / 1000000000) %>% round(2), 
+              mean=mean(reads_post_fastp * 150 / 1000000000) %>% round(2),
+              sd=sd(reads_post_fastp * 150 / 1000000000) %>% round(2)) %>%
+    unite("Average",mean, sd, sep = " ± ", remove = TRUE) %>%
+    tt()
+```
+
+## DNA fractions
+
+```{r dna_fractions_stats}
+sequence_fractions_pf <- read_counts_pf %>%
+  pivot_longer(-genome, names_to = "sample", values_to = "value") %>%
+  group_by(sample) %>%
+  summarise(mags = sum(value)) %>%
+	left_join(sample_metadata_pf, by = join_by(sample == sample)) %>%
+	select(sample,mags,metagenomic_bases,host_bases,bases_lost_fastp_percent, singlem_fraction) %>%
+	mutate(mags_bases = mags*146) %>%
+	mutate(lowqual_bases = ((metagenomic_bases+host_bases)/(1-bases_lost_fastp_percent))-(metagenomic_bases+host_bases)) %>%
+	mutate(unmapped_bases = metagenomic_bases - mags_bases) %>%
+	mutate(unmapped_bases = ifelse(unmapped_bases < 0, 0, unmapped_bases)) %>%
+	select(sample, lowqual_bases, host_bases, unmapped_bases, mags_bases, singlem_fraction) %>%
+  mutate(host_species="Podarcis filfolensis")
+
+sequence_fractions_pg <- read_counts_pg %>%
+  pivot_longer(-genome, names_to = "sample", values_to = "value") %>%
+  group_by(sample) %>%
+  summarise(mags = sum(value)) %>%
+	left_join(sample_metadata_pg, by = join_by(sample == sample)) %>%
+	select(sample,mags,metagenomic_bases,host_bases,bases_lost_fastp_percent, singlem_fraction) %>%
+	mutate(mags_bases = mags*146) %>%
+	mutate(lowqual_bases = ((metagenomic_bases+host_bases)/(1-bases_lost_fastp_percent))-(metagenomic_bases+host_bases)) %>%
+	mutate(unmapped_bases = metagenomic_bases - mags_bases) %>%
+	mutate(unmapped_bases = ifelse(unmapped_bases < 0, 0, unmapped_bases)) %>%
+	select(sample, lowqual_bases, host_bases, unmapped_bases, mags_bases, singlem_fraction) %>%
+  mutate(host_species="Podarcis geigae")
+
+sequence_fractions_pm <- read_counts_pm %>%
+  pivot_longer(-genome, names_to = "sample", values_to = "value") %>%
+  group_by(sample) %>%
+  summarise(mags = sum(value)) %>%
+	left_join(sample_metadata_pm, by = join_by(sample == sample)) %>%
+	select(sample,mags,metagenomic_bases,host_bases,bases_lost_fastp_percent, singlem_fraction) %>%
+	mutate(mags_bases = mags*146) %>%
+	mutate(lowqual_bases = ((metagenomic_bases+host_bases)/(1-bases_lost_fastp_percent))-(metagenomic_bases+host_bases)) %>%
+	mutate(unmapped_bases = metagenomic_bases - mags_bases) %>%
+	mutate(unmapped_bases = ifelse(unmapped_bases < 0, 0, unmapped_bases)) %>%
+	select(sample, lowqual_bases, host_bases, unmapped_bases, mags_bases, singlem_fraction) %>%
+  mutate(host_species="Podarcis milensis")
+
+sequence_fractions_pp <- read_counts_pp %>%
+  pivot_longer(-genome, names_to = "sample", values_to = "value") %>%
+  group_by(sample) %>%
+  summarise(mags = sum(value)) %>%
+	left_join(sample_metadata_pp, by = join_by(sample == sample)) %>%
+	select(sample,mags,metagenomic_bases,host_bases,bases_lost_fastp_percent, singlem_fraction) %>%
+	mutate(mags_bases = mags*146) %>%
+	mutate(lowqual_bases = ((metagenomic_bases+host_bases)/(1-bases_lost_fastp_percent))-(metagenomic_bases+host_bases)) %>%
+	mutate(unmapped_bases = metagenomic_bases - mags_bases) %>%
+	mutate(unmapped_bases = ifelse(unmapped_bases < 0, 0, unmapped_bases)) %>%
+	select(sample, lowqual_bases, host_bases, unmapped_bases, mags_bases, singlem_fraction) %>%
+  mutate(host_species="Podarcis pityusensis")
+
+sequence_fractions <- bind_rows(sequence_fractions_pf,sequence_fractions_pg,sequence_fractions_pm,sequence_fractions_pp)
+```
+
+
+```{r dna_fractions_plot, message=FALSE, warning=FALSE, fig.height=6, fig.width=10, fig.fullwidth=TRUE}
+sequence_fractions %>%
+  select(-singlem_fraction) %>% 
+	pivot_longer(!c(sample,host_species), names_to = "fraction", values_to = "value") %>%
+	mutate(value = value / 1000000000) %>%
+	mutate(fraction = factor(fraction, levels = c("lowqual_bases","host_bases","unmapped_bases","mags_bases"))) %>%
+	ggplot(., aes(x = sample, y = value, fill=fraction)) +
+	    geom_bar(position="stack", stat = "identity") +
+      scale_fill_manual(name="Sequence type",
+                    breaks=c("lowqual_bases","host_bases","unmapped_bases","mags_bases"),
+                    labels=c("Low quality","Mapped to host","Unmapped","Mapped to MAGs"),
+                    values=c("#CCCCCC", "#bcdee1", "#d8b8a3","#93655c"))+
+      facet_wrap(~host_species, scales="free")+
+	    labs(x = "Samples", y = "Amount of data (GB)") +
+	    theme_classic() +
+	    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size=6),legend.position = "bottom")
+```
+
+## Recovered microbial fraction
+
+### Per species
+
+DAMR visualisation based on individual MAG dereplications per species.
+
+```{r data_estimations_plot_sp, message=FALSE, warning=FALSE, fig.height=15, fig.width=10, fig.fullwidth=TRUE}
+singlem_table <- sequence_fractions %>%
+	mutate(mags_proportion = round((mags_bases / (mags_bases + unmapped_bases))*100,2)) %>%
+	mutate(singlem_proportion = round(singlem_fraction*100,2)) %>%
+	select(sample,mags_proportion,singlem_proportion,host_species) %>%
+	mutate(mags_proportion = ifelse(singlem_proportion == 0, 0, mags_proportion)) %>% #convert zeros to NA
+	mutate(singlem_proportion = ifelse(singlem_proportion == 0, NA, singlem_proportion)) %>% #convert zeros to NA
+	mutate(singlem_proportion = ifelse(singlem_proportion < mags_proportion, NA, singlem_proportion)) %>% #if singlem is smaller, then NA, to simplify plot
+	mutate(singlem_proportion = ifelse(singlem_proportion > 100, 100, singlem_proportion)) #simplify
+
+singlem_table %>%
+	pivot_longer(!c(sample,host_species), names_to = "proportion", values_to = "value") %>%
+	mutate(proportion = factor(proportion, levels = c("mags_proportion","singlem_proportion"))) %>%
+	ggplot(., aes(x = value, y = sample, color=proportion)) +
+			geom_line(aes(group = sample), color = "#f8a538") +
+			geom_point() +
+      scale_color_manual(name="Proportion",
+                    breaks=c("mags_proportion","singlem_proportion"),
+                    labels=c("Recovered","Estimated"),
+                    values=c("#52e1e8", "#876b53"))+
+      facet_nested(host_species ~ ., scales="free",space="free")+
+			theme_classic() +
+			labs(y = "Samples", x = "Prokaryotic fraction (%)") +
+	    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size=6),
+	          legend.position = "right",
+	          strip.background.y=element_rect(color = NA, fill= "#f4f4f4"))
+
+```
+### All
+
+DAMR visualisation after dereplicating MAGs from all 4 species.
+
+```{r data_estimations_plot_all, message=FALSE, warning=FALSE, fig.height=15, fig.width=10, fig.fullwidth=TRUE}
+sequence_fractions_all<- read_counts_all %>%
+  pivot_longer(-genome, names_to = "sample", values_to = "value") %>%
+  group_by(sample) %>%
+  summarise(mags = sum(value)) %>%
+	left_join(sample_metadata_all, by = join_by(sample == sample)) %>%
+	select(sample,mags,metagenomic_bases,host_bases,bases_lost_fastp_percent, singlem_fraction) %>%
+	mutate(mags_bases = mags*146) %>%
+	mutate(lowqual_bases = ((metagenomic_bases+host_bases)/(1-bases_lost_fastp_percent))-(metagenomic_bases+host_bases)) %>%
+	mutate(unmapped_bases = metagenomic_bases - mags_bases) %>%
+	mutate(unmapped_bases = ifelse(unmapped_bases < 0, 0, unmapped_bases)) %>%
+	select(sample, lowqual_bases, host_bases, unmapped_bases, mags_bases, singlem_fraction)
+
+singlem_table <- sequence_fractions_all %>%
+	mutate(mags_proportion = round((mags_bases / (mags_bases + unmapped_bases))*100,2)) %>%
+	mutate(singlem_proportion = round(singlem_fraction,2)) %>%
+	select(sample,mags_proportion,singlem_proportion) %>%
+	mutate(mags_proportion = ifelse(singlem_proportion == 0, 0, mags_proportion)) %>% #convert zeros to NA
+	mutate(singlem_proportion = ifelse(singlem_proportion == 0, NA, singlem_proportion)) %>% #convert zeros to NA
+	mutate(singlem_proportion = ifelse(singlem_proportion < mags_proportion, NA, singlem_proportion)) %>% #if singlem is smaller, then NA, to simplify plot
+	mutate(singlem_proportion = ifelse(singlem_proportion > 100, 100, singlem_proportion)) #simplify
+
+singlem_table %>%
+	pivot_longer(!c(sample), names_to = "proportion", values_to = "value") %>%
+	mutate(proportion = factor(proportion, levels = c("mags_proportion","singlem_proportion"))) %>%
+	ggplot(., aes(x = value, y = sample, color=proportion)) +
+			geom_line(aes(group = sample), color = "#f8a538") +
+			geom_point() +
+      scale_color_manual(name="Proportion",
+                    breaks=c("mags_proportion","singlem_proportion"),
+                    labels=c("Recovered","Estimated"),
+                    values=c("#52e1e8", "#876b53"))+
+			theme_classic() +
+			labs(y = "Samples", x = "Prokaryotic fraction (%)") +
+	    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size=6),
+	          legend.position = "right",
+	          strip.background.y=element_rect(color = NA, fill= "#f4f4f4"))
+
+```

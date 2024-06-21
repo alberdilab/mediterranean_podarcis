@@ -1,0 +1,629 @@
+# Data preparation
+
+## Podarcis filfolensis (PF)
+
+#### Sample metadata
+
+```{r load_sample_metadata_pf, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+sample_metadata_pf <- read_tsv("data/pf/DMB0159_metadata.tsv.gz") %>%
+    rename(sample=1)
+```
+
+#### Genome metadata
+
+```{r load_genome_metadata_pf, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_metadata_pf <- read_tsv("data/pf/DMB0159_mag_info.tsv.gz") %>%
+    rename(length=mag_size)
+```
+
+#### Read counts
+
+```{r load_read_counts_pf, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+read_counts_pf <- read_tsv("data/pf/DMB0159_counts.tsv.gz") %>%
+    rename(genome=1) %>%
+    select(all_of(c("genome",sample_metadata_pf$sample))) %>% # sort samples
+    arrange(match(genome,genome_metadata_pf$genome)) # sort genomes
+```
+
+#### Genome base hits
+
+```{r load_genome_hits_pf, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_coverage_pf <- read_tsv("data/pf/DMB0159_coverage.tsv.gz") %>%
+    rename(genome=1) %>%
+    select(all_of(c("genome",sample_metadata_pf$sample))) %>% # sort samples
+    arrange(match(genome,genome_metadata_pf$genome)) # sort genomes
+```
+
+#### Genome tree
+
+```{r load_genome_tree_pf, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_tree_pf <- read_tree("data/pf/DMB0159.tree")
+genome_tree_pf$tip.label <- str_replace_all(genome_tree_pf$tip.label,"'", "") #remove single quotes in MAG names
+genome_tree_pf <- keep.tip(genome_tree_pf, tip=genome_metadata_pf$genome) # keep only MAG tips
+```
+
+#### Genome annotations
+
+Downloading individual annotation files from ERDA using information in Airtable and writing them to a single compressed table takes a while. The following chunk only needs to be run once, to generate the ***genome_annotations*** table that is saved in the data directory. Note that the airtable connection requires a personal access token. 
+
+```{r download_genome_annotations_pf, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+airtable("MAGs", "appWbHBNLE6iAsMRV") %>% #get base ID from Airtable browser URL
+  read_airtable(., fields = c("ID","mag_name","number_genes","anno_url"), id_to_col = TRUE) %>% #get 3 columns from MAGs table
+  filter(mag_name %in% paste0(genome_metadata_pf$genome,".fa")) %>% #filter by MAG name
+  filter(number_genes > 0) %>% #genes need to exist
+  select(anno_url) %>% #list MAG annotation urls
+  pull() %>%
+  read_tsv() %>% #load all tables
+  rename(gene=1, genome=2, contig=3) %>% #rename first 3 columns
+  write_tsv(file="data/pf/genome_annotations.tsv.xz") #write to overall compressed file
+```
+
+```{r load_genome_annotations_pf, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_annotations_pf <- read_tsv("data/pf/genome_annotations.tsv.xz") %>%
+    rename(gene=1, genome=2, contig=3)
+```
+
+#### Create working objects
+
+Transform the original data files into working objects for downstream analyses.
+
+#### Filter reads by coverage
+
+```{r filter_coverage_pf, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+min_coverage=0.3
+read_counts_filt_pf <- genome_coverage_pf %>%
+  mutate(across(where(is.numeric), ~ ifelse(. > min_coverage, 1, 0))) %>%
+  mutate(across(-1, ~ . * read_counts_pf[[cur_column()]])) 
+```
+
+#### Transform reads into genome counts
+
+```{r calculate_genome_counts_unfiltered_pf, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+readlength=150
+genome_counts_pf <- read_counts_pf %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata_pf$length / readlength) ))
+```
+
+```{r calculate_genome_counts_filtered_pf, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+readlength=150
+genome_counts_filt_pf <- read_counts_filt_pf %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata_pf$length / readlength) ))
+```
+
+#### Distill annotations into GIFTs 
+
+```{r distill_annotations_pf, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_gifts_pf <- distill(genome_annotations_pf,GIFT_db,genomecol=2,annotcol=c(9,10,19), verbosity=F)
+```
+
+#### Prepare color scheme
+
+[AlberdiLab](www.alberdilab.dk) projects use unified color schemes developed for the [Earth Hologenome Initiative](www.earthhologenome.org), to facilitate figure interpretation.
+
+```{r get_ehi_colors_pf, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+phylum_colors_pf <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+    right_join(genome_metadata_pf, by=join_by(phylum == phylum)) %>%
+    arrange(match(genome, genome_tree_pf$tip.label)) %>%
+    select(phylum, colors) %>% 
+    unique() %>%
+    arrange(phylum) %>%
+    pull(colors, name=phylum)
+```
+
+#### Wrap working objects
+
+All working objects are wrapped into a single Rdata object to facilitate downstream usage.
+
+```{r wrap_working_objects_pf, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+save(sample_metadata_pf, 
+     genome_metadata_pf, 
+     read_counts_pf, 
+     genome_counts_pf, 
+     genome_counts_filt_pf, 
+     genome_tree_pf,
+     genome_gifts_pf, 
+     phylum_colors_pf,
+     file = "data/data_podarcis_filfolensis.Rdata")
+```
+
+## Podarcis gaigeae (PG)
+
+#### Sample metadata
+
+```{r load_sample_metadata_pg, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+sample_metadata_pg <- read_tsv("data/pg/DMB0160_metadata.tsv.gz") %>%
+    rename(sample=1)
+```
+
+#### Genome metadata
+
+```{r load_genome_metadata_pg, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_metadata_pg <- read_tsv("data/pg/DMB0160_mag_info.tsv.gz") %>%
+    rename(length=mag_size)
+```
+
+#### Read counts
+
+```{r load_read_counts_pg, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+read_counts_pg <- read_tsv("data/pg/DMB0160_counts.tsv.gz") %>%
+    rename(genome=1) %>%
+    select(all_of(c("genome",sample_metadata_pg$sample))) %>% # sort samples
+    arrange(match(genome,genome_metadata_pg$genome)) # sort genomes
+```
+
+#### Genome base hits
+
+```{r load_genome_hits_pg, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_coverage_pg <- read_tsv("data/pg/DMB0160_coverage.tsv.gz") %>%
+    rename(genome=1) %>%
+    select(all_of(c("genome",sample_metadata_pg$sample))) %>% # sort samples
+    arrange(match(genome,genome_metadata_pg$genome)) # sort genomes
+```
+
+#### Genome tree
+
+```{r load_genome_tree_pg, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_tree_pg <- read_tree("data/pg/DMB0160.tree")
+genome_tree_pg$tip.label <- str_replace_all(genome_tree_pg$tip.label,"'", "") #remove single quotes in MAG names
+genome_tree_pg <- keep.tip(genome_tree_pg, tip=genome_metadata_pg$genome) # keep only MAG tips
+```
+
+#### Genome annotations
+
+Downloading individual annotation files from ERDA using information in Airtable and writing them to a single compressed table takes a while. The following chunk only needs to be run once, to generate the ***genome_annotations*** table that is saved in the data directory. Note that the airtable connection requires a personal access token. 
+
+```{r download_genome_annotations_pg, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+airtable("MAGs", "appWbHBNLE6iAsMRV") %>% #get base ID from Airtable browser URL
+  read_airtable(., fields = c("ID","mag_name","number_genes","anno_url"), id_to_col = TRUE) %>% #get 3 columns from MAGs table
+  filter(mag_name %in% paste0(genome_metadata_pg$genome,".fa")) %>% #filter by MAG name
+  filter(number_genes > 0) %>% #genes need to exist
+  select(anno_url) %>% #list MAG annotation urls
+  pull() %>%
+  read_tsv() %>% #load all tables
+  rename(gene=1, genome=2, contig=3) %>% #rename first 3 columns
+  write_tsv(file="data/pg/genome_annotations.tsv.xz") #write to overall compressed file
+```
+
+```{r load_genome_annotations_pg, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_annotations_pg <- read_tsv("data/pg/genome_annotations.tsv.xz") %>%
+    rename(gene=1, genome=2, contig=3)
+```
+
+#### Create working objects
+
+Transform the original data files into working objects for downstream analyses.
+
+#### Filter reads by coverage
+
+```{r filter_coverage_pg, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+min_coverage=0.3
+read_counts_filt_pg <- genome_coverage_pg %>%
+  mutate(across(where(is.numeric), ~ ifelse(. > min_coverage, 1, 0))) %>%
+  mutate(across(-1, ~ . * read_counts_pg[[cur_column()]])) 
+```
+
+#### Transform reads into genome counts
+
+```{r calculate_genome_counts_unfiltered_pg, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+readlength=150
+genome_counts_pg <- read_counts_pg %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata_pg$length / readlength) ))
+```
+
+```{r calculate_genome_counts_filtered_pg, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+readlength=150
+genome_counts_filt_pg <- read_counts_filt_pg %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata_pg$length / readlength) ))
+```
+
+#### Distill annotations into GIFTs 
+
+```{r distill_annotations_pg, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_gifts_pg <- distill(genome_annotations_pg,GIFT_db,genomecol=2,annotcol=c(9,10,19), verbosity=F)
+```
+
+#### Prepare color scheme
+
+[AlberdiLab](www.alberdilab.dk) projects use unified color schemes developed for the [Earth Hologenome Initiative](www.earthhologenome.org), to facilitate figure interpretation.
+
+```{r get_ehi_colors_pg, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+phylum_colors_pg <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+    right_join(genome_metadata_pg, by=join_by(phylum == phylum)) %>%
+    arrange(match(genome, genome_tree_pg$tip.label)) %>%
+    select(phylum, colors) %>% 
+    unique() %>%
+    arrange(phylum) %>%
+    pull(colors, name=phylum)
+```
+
+#### Wrap working objects
+
+All working objects are wrapped into a single Rdata object to facilitate downstream usage.
+
+```{r wrap_working_objects_pg, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+save(sample_metadata_pg, 
+     genome_metadata_pg, 
+     read_counts_pg, 
+     genome_counts_pg, 
+     genome_counts_filt_pg, 
+     genome_tree_pg,
+     genome_gifts_pg, 
+     phylum_colors_pg,
+     file = "data/data_podarcis_gaigeae.Rdata")
+```
+
+## Podarcis milensis (PM)
+
+#### Sample metadata
+
+```{r load_sample_metadata_pm, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+sample_metadata_pm <- read_tsv("data/pm/DMB0158_metadata.tsv.gz") %>%
+    rename(sample=1)
+```
+
+#### Genome metadata
+
+```{r load_genome_metadata_pm, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_metadata_pm <- read_tsv("data/pm/DMB0158_mag_info.tsv.gz") %>%
+    rename(length=mag_size)
+```
+
+#### Read counts
+
+```{r load_read_counts_pm, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+read_counts_pm <- read_tsv("data/pm/DMB0158_counts.tsv.gz") %>%
+    rename(genome=1) %>%
+    select(all_of(c("genome",sample_metadata_pm$sample))) %>% # sort samples
+    arrange(match(genome,genome_metadata_pm$genome)) # sort genomes
+```
+
+#### Genome base hits
+
+```{r load_genome_hits_pm, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_coverage_pm <- read_tsv("data/pm/DMB0158_coverage.tsv.gz") %>%
+    rename(genome=1) %>%
+    select(all_of(c("genome",sample_metadata_pm$sample))) %>% # sort samples
+    arrange(match(genome,genome_metadata_pm$genome)) # sort genomes
+```
+
+#### Genome tree
+
+```{r load_genome_tree_pm, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_tree_pm <- read_tree("data/pm/DMB0158.tree")
+genome_tree_pm$tip.label <- str_replace_all(genome_tree_pm$tip.label,"'", "") #remove single quotes in MAG names
+genome_tree_pm <- keep.tip(genome_tree_pm, tip=genome_metadata_pm$genome) # keep only MAG tips
+```
+
+#### Genome annotations
+
+Downloading individual annotation files from ERDA using information in Airtable and writing them to a single compressed table takes a while. The following chunk only needs to be run once, to generate the ***genome_annotations*** table that is saved in the data directory. Note that the airtable connection requires a personal access token. 
+
+```{r download_genome_annotations_pm, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+airtable("MAGs", "appWbHBNLE6iAsMRV") %>% #get base ID from Airtable browser URL
+  read_airtable(., fields = c("ID","mag_name","number_genes","anno_url"), id_to_col = TRUE) %>% #get 3 columns from MAGs table
+  filter(mag_name %in% paste0(genome_metadata_pm$genome,".fa")) %>% #filter by MAG name
+  filter(number_genes > 0) %>% #genes need to exist
+  select(anno_url) %>% #list MAG annotation urls
+  pull() %>%
+  read_tsv() %>% #load all tables
+  rename(gene=1, genome=2, contig=3) %>% #rename first 3 columns
+  write_tsv(file="data/pm/genome_annotations.tsv.xz") #write to overall compressed file
+```
+
+```{r load_genome_annotations_pm, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_annotations_pm <- read_tsv("data/pm/genome_annotations.tsv.xz") %>%
+    rename(gene=1, genome=2, contig=3)
+```
+
+#### Create working objects
+
+Transform the original data files into working objects for downstream analyses.
+
+#### Filter reads by coverage
+
+```{r filter_coverage_pm, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+min_coverage=0.3
+read_counts_filt_pm <- genome_coverage_pm %>%
+  mutate(across(where(is.numeric), ~ ifelse(. > min_coverage, 1, 0))) %>%
+  mutate(across(-1, ~ . * read_counts_pm[[cur_column()]])) 
+```
+
+#### Transform reads into genome counts
+
+```{r calculate_genome_counts_unfiltered_pm, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+readlength=150
+genome_counts_pm <- read_counts_pm %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata_pm$length / readlength) ))
+```
+
+```{r calculate_genome_counts_filtered_pm, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+readlength=150
+genome_counts_filt_pm <- read_counts_filt_pm %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata_pm$length / readlength) ))
+```
+
+#### Distill annotations into GIFTs 
+
+```{r distill_annotations_pm, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_gifts_pm <- distill(genome_annotations_pm,GIFT_db,genomecol=2,annotcol=c(9,10,19), verbosity=F)
+```
+
+#### Prepare color scheme
+
+[AlberdiLab](www.alberdilab.dk) projects use unified color schemes developed for the [Earth Hologenome Initiative](www.earthhologenome.org), to facilitate figure interpretation.
+
+```{r get_ehi_colors_pm, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+phylum_colors_pm <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+    right_join(genome_metadata_pm, by=join_by(phylum == phylum)) %>%
+    arrange(match(genome, genome_tree_pm$tip.label)) %>%
+    select(phylum, colors) %>% 
+    unique() %>%
+    arrange(phylum) %>%
+    pull(colors, name=phylum)
+```
+
+#### Wrap working objects
+
+All working objects are wrapped into a single Rdata object to facilitate downstream usage.
+
+```{r wrap_working_objects_pm, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+save(sample_metadata_pm, 
+     genome_metadata_pm, 
+     read_counts_pm, 
+     genome_counts_pm, 
+     genome_counts_filt_pm, 
+     genome_tree_pm,
+     genome_gifts_pm, 
+     phylum_colors_pm,
+     file = "data/data_podarcis_milensis.Rdata")
+```
+
+## Podarcis pityusensis (PP)
+
+#### Sample metadata
+
+```{r load_sample_metadata_pp, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+sample_metadata_pp <- read_tsv("data/pp/DMB0161_metadata.tsv.gz") %>%
+    rename(sample=1)
+```
+
+#### Genome metadata
+
+```{r load_genome_metadata_pp, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_metadata_pp <- read_tsv("data/pp/DMB0161_mag_info.tsv.gz") %>%
+    rename(length=mag_size)
+```
+
+#### Read counts
+
+```{r load_read_counts_pp, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+read_counts_pp <- read_tsv("data/pp/DMB0161_counts.tsv.gz") %>%
+    rename(genome=1) %>%
+    select(all_of(c("genome",sample_metadata_pp$sample))) %>% # sort samples
+    arrange(match(genome,genome_metadata_pp$genome)) # sort genomes
+```
+
+#### Genome base hits
+
+```{r load_genome_hits_pp, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_coverage_pp <- read_tsv("data/pp/DMB0161_coverage.tsv.gz") %>%
+    rename(genome=1) %>%
+    select(all_of(c("genome",sample_metadata_pp$sample))) %>% # sort samples
+    arrange(match(genome,genome_metadata_pp$genome)) # sort genomes
+```
+
+#### Genome tree
+
+```{r load_genome_tree_pp, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_tree_pp <- read_tree("data/pp/DMB0161.tree")
+genome_tree_pp$tip.label <- str_replace_all(genome_tree_pp$tip.label,"'", "") #remove single quotes in MAG names
+genome_tree_pp <- keep.tip(genome_tree_pp, tip=genome_metadata_pp$genome) # keep only MAG tips
+```
+
+#### Genome annotations
+
+Downloading individual annotation files from ERDA using information in Airtable and writing them to a single compressed table takes a while. The following chunk only needs to be run once, to generate the ***genome_annotations*** table that is saved in the data directory. Note that the airtable connection requires a personal access token. 
+
+```{r download_genome_annotations_pp, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+airtable("MAGs", "appWbHBNLE6iAsMRV") %>% #get base ID from Airtable browser URL
+  read_airtable(., fields = c("ID","mag_name","number_genes","anno_url"), id_to_col = TRUE) %>% #get 3 columns from MAGs table
+  filter(mag_name %in% paste0(genome_metadata_pp$genome,".fa")) %>% #filter by MAG name
+  filter(number_genes > 0) %>% #genes need to exist
+  select(anno_url) %>% #list MAG annotation urls
+  pull() %>%
+  read_tsv() %>% #load all tables
+  rename(gene=1, genome=2, contig=3) %>% #rename first 3 columns
+  write_tsv(file="data/pp/genome_annotations.tsv.xz") #write to overall compressed file
+```
+
+```{r load_genome_annotations_pp, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_annotations_pp <- read_tsv("data/pp/genome_annotations.tsv.xz") %>%
+    rename(gene=1, genome=2, contig=3)
+```
+
+#### Create working objects
+
+Transform the original data files into working objects for downstream analyses.
+
+#### Filter reads by coverage
+
+```{r filter_coverage_pp, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+min_coverage=0.3
+read_counts_filt_pp <- genome_coverage_pp %>%
+  mutate(across(where(is.numeric), ~ ifelse(. > min_coverage, 1, 0))) %>%
+  mutate(across(-1, ~ . * read_counts_pp[[cur_column()]])) 
+```
+
+#### Transform reads into genome counts
+
+```{r calculate_genome_counts_unfiltered_pp, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+readlength=150
+genome_counts_pp <- read_counts_pp %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata_pp$length / readlength) ))
+```
+
+```{r calculate_genome_counts_filtered_pp, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+readlength=150
+genome_counts_filt_pp <- read_counts_filt_pp %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata_pp$length / readlength) ))
+```
+
+#### Distill annotations into GIFTs 
+
+```{r distill_annotations_pp, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_gifts_pp <- distill(genome_annotations_pp,GIFT_db,genomecol=2,annotcol=c(9,10,19), verbosity=F)
+```
+
+#### Prepare color scheme
+
+[AlberdiLab](www.alberdilab.dk) projects use unified color schemes developed for the [Earth Hologenome Initiative](www.earthhologenome.org), to facilitate figure interpretation.
+
+```{r get_ehi_colors_pp, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+phylum_colors_pp <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+    right_join(genome_metadata_pp, by=join_by(phylum == phylum)) %>%
+    arrange(match(genome, genome_tree_pp$tip.label)) %>%
+    select(phylum, colors) %>% 
+    unique() %>%
+    arrange(phylum) %>%
+    pull(colors, name=phylum)
+```
+
+#### Wrap working objects
+
+All working objects are wrapped into a single Rdata object to facilitate downstream usage.
+
+```{r wrap_working_objects_pp, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+save(sample_metadata_pp, 
+     genome_metadata_pp, 
+     read_counts_pp, 
+     genome_counts_pp, 
+     genome_counts_filt_pp, 
+     genome_tree_pp,
+     genome_gifts_pp, 
+     phylum_colors_pp,
+     file = "data/data_podarcis_pityusensis.Rdata")
+```
+
+## All
+
+#### Sample metadata
+
+```{r load_sample_metadata_all, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+sample_metadata_all <- read_tsv("data/all/DMB0162_metadata.tsv.gz") %>%
+    rename(sample=1) %>%
+    mutate(
+      population = case_when(
+        species == "Podarcis filfolensis" ~ str_replace(population,"_","_pf_"),
+        species == "Podarcis gaigeae" ~ str_replace(population,"_","_pg_"),
+        species == "Podarcis milensis" ~ str_replace(population,"_","_pm_"),
+        species == "Podarcis pityusensis" ~ str_replace(population,"_","_pp_"),
+        TRUE ~ NA))
+```
+
+#### Genome metadata
+
+```{r load_genome_metadata_all, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_metadata_all <- read_tsv("data/all/DMB0162_mag_info.tsv.gz") %>%
+    rename(length=mag_size)
+```
+
+#### Read counts
+
+```{r load_read_counts_all, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+read_counts_all <- read_tsv("data/all/DMB0162_counts.tsv.gz") %>%
+    rename(genome=1) %>%
+    select(all_of(c("genome",sample_metadata_all$sample))) %>% # sort samples
+    arrange(match(genome,genome_metadata_all$genome)) # sort genomes
+```
+
+#### Genome base hits
+
+```{r load_genome_hits_all, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_coverage_all <- read_tsv("data/all/DMB0162_coverage.tsv.gz") %>%
+    rename(genome=1) %>%
+    select(all_of(c("genome",sample_metadata_all$sample))) %>% # sort samples
+    arrange(match(genome,genome_metadata_all$genome)) # sort genomes
+```
+
+#### Genome tree
+
+```{r load_genome_tree_all, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_tree_all <- read_tree("data/all/DMB0162.tree")
+genome_tree_all$tip.label <- str_replace_all(genome_tree_all$tip.label,"'", "") #remove single quotes in MAG names
+genome_tree_all <- keep.tip(genome_tree_all, tip=genome_metadata_all$genome) # keep only MAG tips
+```
+
+#### Genome annotations
+
+```{r load_genome_annotations_all, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_annotations_all <- read_tsv(c("data/pf/genome_annotations.tsv.xz",
+                                   "data/pg/genome_annotations.tsv.xz",
+                                   "data/pm/genome_annotations.tsv.xz",
+                                   "data/pp/genome_annotations.tsv.xz")) %>%
+    rename(gene=1, genome=2, contig=3)
+```
+
+#### Create working objects
+
+Transform the original data files into working objects for downstream analyses.
+
+#### Filter reads by coverage
+
+```{r filter_coverage_all, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+min_coverage=0.3
+read_counts_filt_all <- genome_coverage_all %>%
+  mutate(across(where(is.numeric), ~ ifelse(. > min_coverage, 1, 0))) %>%
+  mutate(across(-1, ~ . * read_counts_all[[cur_column()]])) 
+```
+
+#### Transform reads into genome counts
+
+```{r calculate_genome_counts_unfiltered_all, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+readlength=150
+genome_counts_all <- read_counts_all %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata_all$length / readlength) ))
+```
+
+```{r calculate_genome_counts_filtered_all, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+readlength=150
+genome_counts_filt_all <- read_counts_filt_all %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata_all$length / readlength) ))
+```
+
+#### Distill annotations into GIFTs 
+
+```{r distill_annotations_all, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+genome_gifts_all <- distill(genome_annotations_all,GIFT_db,genomecol=2,annotcol=c(9,10,19), verbosity=F)
+```
+
+#### Prepare color scheme
+
+[AlberdiLab](www.alberdilab.dk) projects use unified color schemes developed for the [Earth Hologenome Initiative](www.earthhologenome.org), to facilitate figure interpretation.
+
+```{r get_ehi_colors_all, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+phylum_colors_all <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+    right_join(genome_metadata_all, by=join_by(phylum == phylum)) %>%
+    arrange(match(genome, genome_tree_all$tip.label)) %>%
+    select(phylum, colors) %>% 
+    unique() %>%
+    arrange(phylum) %>%
+    pull(colors, name=phylum)
+```
+
+#### Wrap working objects
+
+All working objects are wrapped into a single Rdata object to facilitate downstream usage.
+
+```{r wrap_working_objects_all, warning=FALSE, comments="", message=FALSE, eval=FALSE}
+save(sample_metadata_all, 
+     genome_metadata_all, 
+     read_counts_all, 
+     genome_counts_all, 
+     genome_counts_filt_all, 
+     genome_tree_all,
+     genome_gifts_all, 
+     phylum_colors_all,
+     file = "data/data_podarcis_all.Rdata")
+```
+
+
