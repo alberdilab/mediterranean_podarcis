@@ -1,5 +1,7 @@
 # Beta diversity
 
+Comparison of overall beta diversities of sampled populations.
+
 ```{r load_data_beta, message=FALSE, warning=FALSE}
 load("data/data_podarcis_all.Rdata")
 ```

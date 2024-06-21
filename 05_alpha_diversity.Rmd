@@ -1,5 +1,7 @@
 # Alpha diversity
 
+Comparison of overall alpha diversities of sampled populations.
+
 ```{r load_data_alpha, message=FALSE, warning=FALSE}
 load("data/data_podarcis_all.Rdata")
 ```

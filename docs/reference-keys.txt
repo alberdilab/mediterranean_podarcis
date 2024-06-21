@@ -88,5 +88,17 @@ podarcis-filfolensis-2
 podarcis-geigae-1
 podarcis-milensis-2
 podarcis-pityusensis-2
+compositional-analysis
+taxonomy-barplots
+podarcis-filfolensis-3
+taxonomic-representation
+phylum
+order
+family
+genus
+compositional-dissimilarities
+richness-dissimilarity-plot
+neutral-diversity-dissimilarity-plot
+phylogenetic-diversity-dissimilarity-plot
 alpha-diversity
 beta-diversity
