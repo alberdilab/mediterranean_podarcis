@@ -2,7 +2,6 @@ introduction
 prepare-the-r-environment
 environment
 libraries
-data-preparation
 podarcis-filfolensis-pf
 sample-metadata
 genome-metadata
@@ -85,7 +84,6 @@ podarcis-milensis-1
 podarcis-pityusensis-1
 functional-overview
 podarcis-filfolensis-2
-podarcis-geigae-1
 podarcis-milensis-2
 podarcis-pityusensis-2
 compositional-analysis
@@ -102,3 +100,4 @@ neutral-diversity-dissimilarity-plot
 phylogenetic-diversity-dissimilarity-plot
 alpha-diversity
 beta-diversity
+functional-differences

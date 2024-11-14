@@ -305,7 +305,7 @@ genus_summary %>%
 
 ## Compositional dissimilarities
 
-```{r beta_div, comment="", message=FALSE, warning=FALSE}
+```{r beta_div, comment="", message=FALSE, warning=FALSE, eval=FALSE}
 beta_q0n <- genome_counts_filt_all %>%
   column_to_rownames(., "genome") %>%
   filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
@@ -323,7 +323,14 @@ beta_q1p <- genome_counts_filt_all %>%
   filter(rowSums(. != 0, na.rm = TRUE) > 0) %>%
   select_if(~!all(. == 0)) %>%
   hillpair(., q = 1, tree = genome_tree_all)
+
+save(beta_q0n,beta_q1n,file="data/beta_all.Rdata")
 ```
+
+```{r load_beta_all, comment="", message=FALSE, warning=FALSE}
+load("data/beta_all.Rdata")
+```
+
 
 ### Richness dissimilarity plot
 
@@ -395,7 +402,7 @@ nmds_q1n %>%
 
 ### Phylogenetic diversity dissimilarity plot
 
-```{r beta_div_nmds_phylogenetic_plot, comment="", message=FALSE, warning=FALSE, fig.height=7, fig.width=10, fig.fullwidth=TRUE}
+```{r beta_div_nmds_phylogenetic_plot, comment="", message=FALSE, warning=FALSE, fig.height=7, fig.width=10, fig.fullwidth=TRUE, eval=FALSE}
 nmds_q1p <- beta_q1p$S %>%
   vegan::metaMDS(., trymax = 500, k = 2, trace=0) %>%
   vegan::scores() %>%

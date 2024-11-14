@@ -560,7 +560,7 @@ function_tree <- function_tree +
 function_tree
 ```
 
-```{r function_ordination_pf, message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE, eval=FALSE}
+```{r function_ordination_pf, message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
 set.seed(101)
 # Generate the tSNE ordination
 tSNE_function <- Rtsne(X=function_table, dims = 2, check_duplicates = FALSE)
@@ -633,7 +633,7 @@ function_tree <- function_tree +
 function_tree
 ```
 
-```{r function_ordination_pg, message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE, eval=FALSE}
+```{r function_ordination_pg, message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
 set.seed(101)
 # Generate the tSNE ordination
 tSNE_function <- Rtsne(X=function_table, dims = 2, check_duplicates = FALSE)
@@ -707,7 +707,7 @@ function_tree <- function_tree +
 function_tree
 ```
 
-```{r function_ordination_pm, message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE, eval=FALSE}
+```{r function_ordination_pm, message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
 set.seed(101)
 # Generate the tSNE ordination
 tSNE_function <- Rtsne(X=function_table, dims = 2, check_duplicates = FALSE)
@@ -781,7 +781,7 @@ function_tree <- function_tree +
 function_tree
 ```
 
-```{r function_ordination_pp, message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE, eval=FALSE}
+```{r function_ordination_pp, message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
 set.seed(101)
 # Generate the tSNE ordination
 tSNE_function <- Rtsne(X=function_table, dims = 2, check_duplicates = FALSE)
